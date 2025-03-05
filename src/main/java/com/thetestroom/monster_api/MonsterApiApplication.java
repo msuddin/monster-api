@@ -9,5 +9,4 @@ public class MonsterApiApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(MonsterApiApplication.class, args);
 	}
-
 }

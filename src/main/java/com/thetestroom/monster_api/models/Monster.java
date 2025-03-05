@@ -1,27 +1,33 @@
 package com.thetestroom.monster_api.models;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+
+@Entity
 public class Monster {
-    private String id;
+
+    @Id
+    private Long id;
     private String name;
     private String type;
 
-    // No-Args Constructor
+    // Default constructor
     public Monster() {
     }
 
-    // All-Args Constructor
-    public Monster(String id, String name, String type) {
+    // Constructor with parameters
+    public Monster(Long id, String name, String type) {
         this.id = id;
         this.name = name;
         this.type = type;
     }
 
     // Getters and Setters
-    public String getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -41,11 +47,11 @@ public class Monster {
         this.type = type;
     }
 
-    // toString Method
+    // Override toString(), equals(), and hashCode() if needed for better clarity
     @Override
     public String toString() {
         return "Monster{" +
-                "id='" + id + '\'' +
+                "id=" + id +
                 ", name='" + name + '\'' +
                 ", type='" + type + '\'' +
                 '}';
