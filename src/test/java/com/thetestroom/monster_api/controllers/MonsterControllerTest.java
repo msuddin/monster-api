@@ -1,22 +1,22 @@
 package com.thetestroom.monster_api.controllers;
 
 import com.thetestroom.monster_api.models.Monster;
-import com.thetestroom.monster_api.repositories.MonsterRepository;
-import org.junit.jupiter.api.Disabled;
+import com.thetestroom.monster_api.services.MonsterService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import java.util.Arrays;
 import java.util.Optional;
 
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(MonsterController.class)
 public class MonsterControllerTest {
@@ -25,98 +25,120 @@ public class MonsterControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private MonsterRepository monsterRepository;
+    private MonsterService monsterService;
+
+    private Monster monster1;
+    private Monster monster2;
+
+    @BeforeEach
+    void setUp() {
+        monster1 = new Monster(1L, "Dracula", "Vampire");
+        monster2 = new Monster(2L, "Frankenstein", "Undead");
+    }
 
     @Test
     void testGetAllMonsters() throws Exception {
-        Monster monster1 = new Monster(1L, "Monster1", "Type1");
-        Monster monster2 = new Monster(2L, "Monster2", "Type2");
-        Monster monster3 = new Monster(3L, "Monster3", "Type3");
-        given(monsterRepository.findAll()).willReturn(Arrays.asList(monster1, monster2, monster3));
+        when(monsterService.getAllMonsters()).thenReturn(Arrays.asList(monster1, monster2));
 
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/monsters"))
-                .andExpect(MockMvcResultMatchers.status().isOk()) // Expect 200 OK
-                .andExpect(MockMvcResultMatchers.jsonPath("$.length()").value(3)) // Expect 3 monsters
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].name").value("Monster1")) // Check first monster's name
-                .andExpect(MockMvcResultMatchers.jsonPath("$[1].name").value("Monster2")) // Check second monster's name
-                .andExpect(MockMvcResultMatchers.jsonPath("$[2].name").value("Monster3")); // Check third monster's name
+        mockMvc.perform(get("/api/monsters")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(2))
+                .andExpect(jsonPath("$[0].name").value("Dracula"))
+                .andExpect(jsonPath("$[1].name").value("Frankenstein"));
     }
 
     @Test
-    void testGetMonsterById() throws Exception {
-        Monster monster = new Monster(1L, "Monster1", "Type1");
-        given(monsterRepository.findById(1L)).willReturn(Optional.of(monster));
+    void testGetMonsterById_Found() throws Exception {
+        when(monsterService.getMonsterById(1L)).thenReturn(Optional.of(monster1));
 
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/monsters/1"))
-                .andExpect(MockMvcResultMatchers.status().isOk()) // Expect 200 OK
-                .andExpect(MockMvcResultMatchers.jsonPath("$.name").value("Monster1"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.type").value("Type1"));
+        mockMvc.perform(get("/api/monsters/1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Dracula"))
+                .andExpect(jsonPath("$.type").value("Vampire"));
     }
 
     @Test
-    void testGetMonsterByIdNotFound() throws Exception {
-        given(monsterRepository.findById(99L)).willReturn(Optional.empty());
+    void testGetMonsterById_NotFound() throws Exception {
+        when(monsterService.getMonsterById(999L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/monsters/99"))
-                .andExpect(MockMvcResultMatchers.status().isNotFound()); // Expect 404 NOT FOUND
+        mockMvc.perform(get("/api/monsters/999")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    @Disabled
     void testCreateMonster() throws Exception {
-        Monster monster = new Monster(1L, "Monster1", "Type1");
-        given(monsterRepository.save(monster)).willReturn(monster);
+        Monster newMonster = new Monster(3L, "Werewolf", "Beast");
+        when(monsterService.createMonster(Mockito.any(Monster.class))).thenReturn(newMonster);
 
-        mockMvc.perform(MockMvcRequestBuilders.post("/api/monsters")
+        String monsterJson = """
+            {
+                "id": 3,
+                "name": "Werewolf",
+                "type": "Beast"
+            }
+        """;
+
+        mockMvc.perform(post("/api/monsters")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":1,\"name\":\"Monster1\",\"type\":\"Type1\"}"))
-                .andExpect(MockMvcResultMatchers.status().isCreated()) // Expect 201 CREATED
-                .andExpect(MockMvcResultMatchers.jsonPath("$.name").value("Monster1"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.type").value("Type1"));
+                        .content(monsterJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Werewolf"))
+                .andExpect(jsonPath("$.type").value("Beast"));
     }
 
     @Test
-    void testUpdateMonster() throws Exception {
-        Monster existingMonster = new Monster(1L, "Monster1", "Type1");
-        Monster updatedMonster = new Monster(1L, "UpdatedMonster", "UpdatedType");
+    void testUpdateMonster_Success() throws Exception {
+        when(monsterService.updateMonster(Mockito.eq(1L), Mockito.any(Monster.class)))
+                .thenReturn(Optional.of(new Monster(1L, "Updated Dracula", "Vampire")));
 
-        given(monsterRepository.findById(1L)).willReturn(Optional.of(existingMonster));
-        given(monsterRepository.save(existingMonster)).willReturn(updatedMonster);
+        String updatedJson = """
+            {
+                "name": "Updated Dracula",
+                "type": "Vampire"
+            }
+        """;
 
-        mockMvc.perform(MockMvcRequestBuilders.put("/api/monsters/1")
+        mockMvc.perform(put("/api/monsters/1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":1,\"name\":\"UpdatedMonster\",\"type\":\"UpdatedType\"}"))
-                .andExpect(MockMvcResultMatchers.status().isOk()) // Expect 200 OK
-                .andExpect(MockMvcResultMatchers.jsonPath("$.name").value("UpdatedMonster"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.type").value("UpdatedType"));
+                        .content(updatedJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Updated Dracula"));
     }
 
     @Test
-    void testUpdateMonsterNotFound() throws Exception {
-        Monster updatedMonster = new Monster(1L, "UpdatedMonster", "UpdatedType");
+    void testUpdateMonster_NotFound() throws Exception {
+        when(monsterService.updateMonster(Mockito.eq(999L), Mockito.any(Monster.class)))
+                .thenReturn(Optional.empty());
 
-        given(monsterRepository.findById(1L)).willReturn(Optional.empty());
+        String updatedJson = """
+            {
+                "name": "Updated Name",
+                "type": "Updated Type"
+            }
+        """;
 
-        mockMvc.perform(MockMvcRequestBuilders.put("/api/monsters/1")
+        mockMvc.perform(put("/api/monsters/999")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":1,\"name\":\"UpdatedMonster\",\"type\":\"UpdatedType\"}"))
-                .andExpect(MockMvcResultMatchers.status().isNotFound()); // Expect 404 NOT FOUND
+                        .content(updatedJson))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    void testDeleteMonster() throws Exception {
-        willDoNothing().given(monsterRepository).deleteById(1L);
-        given(monsterRepository.existsById(1L)).willReturn(true);
+    void testDeleteMonster_Success() throws Exception {
+        when(monsterService.deleteMonster(1L)).thenReturn(true);
 
-        mockMvc.perform(MockMvcRequestBuilders.delete("/api/monsters/1"))
-                .andExpect(MockMvcResultMatchers.status().isNoContent()); // Expect 204 NO CONTENT
+        mockMvc.perform(delete("/api/monsters/1"))
+                .andExpect(status().isNoContent());
     }
 
     @Test
-    void testDeleteMonsterNotFound() throws Exception {
-        given(monsterRepository.existsById(99L)).willReturn(false);
+    void testDeleteMonster_NotFound() throws Exception {
+        when(monsterService.deleteMonster(999L)).thenReturn(false);
 
-        mockMvc.perform(MockMvcRequestBuilders.delete("/api/monsters/99"))
-                .andExpect(MockMvcResultMatchers.status().isNotFound()); // Expect 404 NOT FOUND
+        mockMvc.perform(delete("/api/monsters/999"))
+                .andExpect(status().isNotFound());
     }
 }
